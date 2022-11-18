@@ -69,6 +69,13 @@ async function run() {
             res.send(options);
         });
 
+        // Get appointment Specialty
+        app.get('/appointmentSpecialty', async (req, res) => {
+            const query = {}
+            const result = await appointmentOptionsCollection.find(query).project({ name: 1 }).toArray()
+            res.send(result)
+        })
+
         // Booking find data by email
         app.get('/bookings', verifyJWT, async (req, res) => {
             const email = req.query.email;
