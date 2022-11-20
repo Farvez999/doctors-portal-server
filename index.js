@@ -40,6 +40,7 @@ async function run() {
         const appointmentOptionsCollection = client.db("doctorsPortal").collection("appointmentOptions");
         const bookingsCollection = client.db("doctorsPortal").collection("bookings");
         const usersCollection = client.db("doctorsPortal").collection("users");
+        const doctorsCollection = client.db("doctorsPortal").collection("doctors");
 
         /***
          * API Naming Convention 
@@ -120,7 +121,7 @@ async function run() {
             const query = { email: email };
             const user = await usersCollection.findOne(query);
             if (user) {
-                const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
+                const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '24h' })
                 return res.send({ accessToken: token });
             }
             res.status(403).send({ accessToken: '' })
@@ -172,6 +173,20 @@ async function run() {
                 }
             }
             const result = await usersCollection.updateOne(filter, updatedDoc, options);
+            res.send(result);
+        })
+
+        // Doctor get all data api
+        app.get('/doctors', async (req, res) => {
+            const query = {};
+            const doctors = await doctorsCollection.find(query).toArray();
+            res.send(doctors);
+        })
+
+        // Doctor post api
+        app.post('/doctors', async (req, res) => {
+            const doctor = req.body;
+            const result = await doctorsCollection.insertOne(doctor);
             res.send(result);
         })
 
