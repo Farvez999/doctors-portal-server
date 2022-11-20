@@ -42,6 +42,17 @@ async function run() {
         const usersCollection = client.db("doctorsPortal").collection("users");
         const doctorsCollection = client.db("doctorsPortal").collection("doctors");
 
+        const verifyAdmin = async (req, res, next) => {
+            const decodedEmail = req.decoded.email;
+            const query = { email: decodedEmail };
+            const user = await usersCollection.findOne(query);
+
+            if (user?.role !== 'admin') {
+                return res.status(403).send({ message: 'forbidden access' })
+            }
+            next();
+        }
+
         /***
          * API Naming Convention 
          * app.get('/bookings')
@@ -114,6 +125,14 @@ async function run() {
             res.send(result);
         })
 
+        // Payment booking api
+        app.get('/bookings/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const booking = await bookingsCollection.findOne(query)
+            res.send(booking);
+        })
+
 
         // JWT
         app.get('/jwt', async (req, res) => {
@@ -150,18 +169,7 @@ async function run() {
         })
 
         // Update user role Admin
-        app.put('/users/admin/:id', verifyJWT, async (req, res) => {
-
-
-            const decodedEmail = req.decoded.email;
-            const query = { email: decodedEmail };
-            const user = await usersCollection.findOne(query);
-
-            if (user?.role !== 'admin') {
-                return res.status(403).send({ message: 'forbidden access' })
-            }
-
-
+        app.put('/users/admin/:id', verifyJWT, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             console.log(id)
             const filter = { _id: ObjectId(id) }
@@ -176,27 +184,44 @@ async function run() {
             res.send(result);
         })
 
+
+        //Temporary to update price field on Appointments options
+        app.get('/addPrice', async (req, res) => {
+            const filter = {};
+            const options = { upsert: true };
+            const updatedDoc = {
+                $set: {
+                    price: 99
+                }
+            }
+            const result = await appointmentOptionsCollection.updateMany(filter, updatedDoc, options);
+            res.send(result);
+        })
+
+
         // Doctor get all data api
-        app.get('/doctors', async (req, res) => {
+        app.get('/doctors', verifyJWT, verifyAdmin, async (req, res) => {
             const query = {};
             const doctors = await doctorsCollection.find(query).toArray();
             res.send(doctors);
         })
 
         // Doctor post api
-        app.post('/doctors', async (req, res) => {
+        app.post('/doctors', verifyJWT, verifyAdmin, async (req, res) => {
             const doctor = req.body;
             const result = await doctorsCollection.insertOne(doctor);
             res.send(result);
         })
 
         // Doctor delete
-        app.delete('/doctors/:id', async (req, res) => {
+        app.delete('/doctors/:id', verifyJWT, verifyAdmin, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: ObjectId(id) };
             const result = await doctorsCollection.deleteOne(filter);
             res.send(result);
         })
+
+
 
 
     } finally {
