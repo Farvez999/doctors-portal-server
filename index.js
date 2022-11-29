@@ -3,6 +3,8 @@ const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const nodemailer = require("nodemailer");
+const mg = require('nodemailer-mailgun-transport');
 
 const stripe = require("stripe")('sk_test_51M6KI7Jb9nyriLWoahD6dzwy06PfzLdDBt72MjJv1quIUgJXRQXAhI7bfH617cUKES7G5eQpCBnKV6KooQwrda5c00oLKLZP0w');
 
@@ -19,6 +21,48 @@ app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.mordayw.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
+
+function sendBookingEmail(booking) {
+    const { email, treatment, appointmentDate, slot } = booking
+
+    const auth = {
+        auth: {
+            api_key: process.env.EMAIL_SEND_KEY,
+            domain: process.env.EMAIL_SEND_DOMAIN
+        }
+    }
+
+    const transporter = nodemailer.createTransport(mg(auth));
+    // let transporter = nodemailer.createTransport({
+    //     host: 'smtp.sendgrid.net',
+    //     port: 587,
+    //     auth: {
+    //         user: "apikey",
+    //         pass: process.env.SENDGRID_API_KEY
+    //     }
+    // })
+
+    transporter.sendMail({
+        from: "farvezhossen101@gmail.com", // verified sender email
+        to: email, // recipient email
+        subject: `Your appoinment for ${treatment} is confirmed`, // Subject line
+        text: "Hello world!", // plain text body
+        html:
+            `
+        <h3>Your appoinment for ${treatment} is confirmed!</h3>
+        <div>
+        <p>Please Visit us on ${appointmentDate} at ${slot}</p>
+        <p>Thank you from Doctor Portal</p>
+        </div>
+        `, // html body
+    }, function (error, info) {
+        if (error) {
+            console.log(error);
+        } else {
+            console.log('Email sent: ' + info.response);
+        }
+    });
+}
 
 function verifyJWT(req, res, next) {
 
@@ -79,7 +123,9 @@ async function run() {
 
             options.forEach(option => {
                 const optionBooked = alreadyBooked.filter(book => book.treatment === option.name)
+                // console.log(optionBooked)
                 const bookslots = optionBooked.map(book => book.slot)
+                console.log(bookslots)
                 const remainingSlots = option.slots.filter(slot => !bookslots.includes(slot))
                 option.slots = remainingSlots;
             })
@@ -127,6 +173,10 @@ async function run() {
             }
 
             const result = await bookingsCollection.insertOne(booking)
+
+            // send email about appointment confirmation
+            sendBookingEmail(booking)
+
             res.send(result);
         })
 
